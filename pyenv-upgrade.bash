@@ -35,13 +35,9 @@ get_available() {
 }
 
 get_prefix_pattern() {
-	if [ "$#" -eq "0" ]; then
-		printf '^[23]\..*$\n'
-	else
-		local escaped_prefix
-		escaped_prefix="$(printf '%s\n' "$1" | sed 's/[.-]/\\&/g')"
-		printf '^%s([.-].*)?$\n' "$escaped_prefix"
-	fi
+	local escaped_prefix
+	escaped_prefix="$(printf '%s\n' "$1" | sed 's/[.-]/\\&/g')"
+	printf '^%s([.-].*)?$\n' "$escaped_prefix"
 }
 
 main() {
@@ -156,68 +152,74 @@ EOF
 	local latest_installed
 	local latest_available
 
-	prefix_pattern="$(get_prefix_pattern "$@")"
+	installed=()
+	available=()
+	if [ "$#" -gt "0" ]; then
+		prefix_pattern="$(get_prefix_pattern "$1")"
+	else
+		prefix_pattern='^[^.-]+[.-][^.-]+'
+	fi
 
 	# get installed versions
-	if [ "$#" -eq "0" ]; then
-		>&2 printf 'installed versions:\n'
-	else
-		>&2 printf 'installed versions matching "%s":\n' "$prefix_pattern"
-	fi
-	installed=()
 	while IFS=	read -r; do \
-		>&2 printf '\t%s\n' "$REPLY"
 		installed+=("$REPLY")
-	done < <(get_installed | grep -E "$prefix_pattern")
-	if [ "${#installed[@]}" -gt "0" ]; then
-		# latest_installed="$(printf '%s\n' "${installed[@]}" | sed -n '$p')"
-		latest_installed="$(printf '%s\n' "${installed[${#installed[@]}-1]}")"
-	else
-		latest_installed=""
-	fi
+	done < <(get_installed | grep -Eo "$prefix_pattern" | uniq)
 
 	# get available versions
-	if [ "$#" -eq "0" ]; then
-		>&2 printf 'available versions:\n'
-	else
-		>&2 printf 'available versions matching "%s":\n' "$prefix_pattern"
-	fi
-	available=()
 	while IFS=	read -r; do \
-		>&2 printf '\t%s\n' "$REPLY"
 		available+=("$REPLY")
-	done < <(get_available | grep -E "$prefix_pattern")
-	if [ "${#available[@]}" -gt "0" ]; then
-		# latest_available="$(printf '%s\n' "${available[@]}" | sed -n '$p')"
-		latest_available="$(printf '%s\n' "${available[${#available[@]}-1]}")"
-	else
-		latest_available=""
-	fi
+	done < <(get_available | grep -Eo "$prefix_pattern" | uniq)
 
-	if [ -n "$latest_installed" ]; then
-		>&2 printf 'latest installed version: %s\n' "$latest_installed"
-	else
-		>&2 printf 'no matching version currently installed!\n'
-	fi
-	if [ -n "$latest_available" ]; then
-		>&2 printf 'latest available version: %s\n' "$latest_available"
-	else
-		>&2 printf '%sERROR%s: no installable version could be found!\n' "$(tput setaf 1)" "$(tput sgr0)"
-		exit 2
-	fi
+	if [ "$#" -eq "0" ]; then
+		if [ "${#installed[@]}" -gt "0" ]; then
+			>&2 printf '%d installed versions:\n' "${#installed[@]}"
+			>&2 printf '\t%s\n' "${installed[@]}"
+		else
+			>&2 printf 'no versions currently installed\n'
+		fi
 
-	if [ -n "$list" ]; then
-		printf '%s\n' "$latest_available"
-		return 0
-	elif [ "$latest_installed" == "$latest_available" ]; then
-		>&2 printf 'already up to date!\n'
-		printf '%s\n' "$latest_installed"
+		if [ "${#available[@]}" -gt "0" ]; then
+			>&2 printf 'available versions:\n'
+			>&2 printf '%d available versions:\n' "${#available[@]}"
+			>&2 printf '\t%s\n' "${available[@]}"
+		else
+			>&2 printf '%sERROR%s: no installable version could be found!\n' "$(tput setaf 1)" "$(tput sgr0)"
+			exit 2
+		fi
 		return 0
 	else
-		>&2 printf 'installing: %s\n' "$latest_available"
-		pyenv install "$latest_available"
+		if [ "${#installed[@]}" -gt "0" ]; then
+			>&2 printf '%d installed versions matching "%s":\n' "${#installed[@]}" "$prefix_pattern"
+			>&2 printf '\t%s\n' "${installed[@]}"
+			# latest_installed="$(printf '%s\n' "${installed[@]}" | sed -n '$p')"
+			latest_installed="$(printf '%s\n' "${installed[${#installed[@]}-1]}")"
+			>&2 printf 'latest installed version: %s\n' "$latest_installed"
+		else
+			>&2 printf 'no versions matching "%s" currently installed:\n' "$prefix_pattern"
+			latest_installed=""
+		fi
+
+		if [ "${#available[@]}" -gt "0" ]; then
+			>&2 printf '%d available versions matching "%s":\n' "${#available[@]}" "$prefix_pattern"
+			>&2 printf '\t%s\n' "${available[@]}"
+			# latest_available="$(printf '%s\n' "${available[@]}" | sed -n '$p')"
+			latest_available="$(printf '%s\n' "${available[${#available[@]}-1]}")"
+			>&2 printf 'latest available version: %s\n' "$latest_available"
+		else
+			>&2 printf '%sERROR%s: no installable version could be found!\n' "$(tput setaf 1)" "$(tput sgr0)"
+			exit 2
+		fi
+
 		printf '%s\n' "$latest_available"
-		return 0
+		if [ "$latest_installed" == "$latest_available" ]; then
+			>&2 printf 'already up to date!\n'
+		elif [ -n "$list" ]; then
+			>&2 printf 'newer version available\n'
+			return 1
+		else
+			>&2 printf 'installing: %s\n' "$latest_available"
+			>&2 pyenv install "$latest_available"
+		fi
 	fi
 }
 
