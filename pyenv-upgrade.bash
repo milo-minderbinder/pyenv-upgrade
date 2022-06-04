@@ -219,6 +219,10 @@ EOF
 		else
 			>&2 printf 'installing: %s\n' "$latest_available"
 			>&2 pyenv install "$latest_available"
+			>&2 printf 'temporarily activating installed version in shell and updating pip and setuptools\n'
+			>&2 pyenv shell "$latest_available"
+			>&2 python -m pip install --upgrade --upgrade-strategy=eager pip setuptools
+			>&2 pyenv shell -
 		fi
 	fi
 }
