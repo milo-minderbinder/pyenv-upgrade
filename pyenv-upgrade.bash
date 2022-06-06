@@ -61,7 +61,7 @@ main() {
 	func_name="$PROGNAME"
 
 	usage() {
-		>&2 cat <<EOF | sed 's/^\t\t//'
+		cat <<EOF | sed 's/^\t\t//' >&2
 		NAME
 			${func_name} -- CLI utility to update Python versions installed with pyenv.
 
