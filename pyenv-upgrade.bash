@@ -34,6 +34,16 @@ get_available() {
 		sort --version-sort
 }
 
+remove_dev_versions() {
+	while IFS=	read -r; do
+		if ! printf '%s\n' "$REPLY" | grep -Eiq '\..*[A-Za-z].*|-dev$'; then
+			printf '%s\n' "$REPLY"
+		else
+			1>&2 printf 'excluding dev version: %s\n' "$REPLY"
+		fi
+	done < <(cat -)
+}
+
 get_prefix_pattern() {
 	local escaped_prefix
 	escaped_prefix="$(printf '%s\n' "$1" | sed 's/[.-]/\\&/g')"
@@ -157,18 +167,18 @@ EOF
 	if [ "$#" -gt "0" ]; then
 		prefix_pattern="$(get_prefix_pattern "$1")"
 	else
-		prefix_pattern='^[^.-]+[.-][^.-]+'
+		prefix_pattern='.*'
 	fi
 
 	# get installed versions
 	while IFS=	read -r; do \
 		installed+=("$REPLY")
-	done < <(get_installed | grep -Eo "$prefix_pattern" | uniq)
+	done < <(get_installed | grep -Eo "$prefix_pattern" | remove_dev_versions | uniq)
 
 	# get available versions
 	while IFS=	read -r; do \
 		available+=("$REPLY")
-	done < <(get_available | grep -Eo "$prefix_pattern" | uniq)
+	done < <(get_available | grep -Eo "$prefix_pattern" | remove_dev_versions | uniq)
 
 	if [ "$#" -eq "0" ]; then
 		if [ "${#installed[@]}" -gt "0" ]; then
@@ -214,12 +224,14 @@ EOF
 		if [ "$latest_installed" == "$latest_available" ]; then
 			>&2 printf 'already up to date!\n'
 		elif [ -n "$list" ]; then
-			>&2 printf 'newer version available\n'
+			>&2 printf 'newer version available: %s -> %s\n' "$latest_installed" "$latest_available"
 			return 1
 		else
 			>&2 printf 'installing: %s\n' "$latest_available"
 			>&2 pyenv install "$latest_available"
 			>&2 printf 'temporarily activating installed version in shell and updating pip and setuptools\n'
+			eval "$(pyenv init -)"
+			>&2 pyenv rehash
 			>&2 pyenv shell "$latest_available"
 			>&2 python -m pip install --upgrade --upgrade-strategy=eager pip setuptools
 			>&2 pyenv shell -
