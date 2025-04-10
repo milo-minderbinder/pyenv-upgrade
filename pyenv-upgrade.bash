@@ -167,24 +167,20 @@ contains_value() {
 }
 
 get_installed() {
-	pyenv versions | \
-		sed -E -e 's/^\*?[[:space:]]*//' -e 's/[[:space:]].*//' | \
-		grep -v 'system' | \
-		sort --version-sort
+	pyenv versions --bare --skip-aliases --skip-envs
 }
 
 get_available() {
 	pyenv install --list | \
 		sed -n '2,$p' | \
-		sed 's/^[[:space:]]*//' | \
-		sort --version-sort
+		sed 's/^[[:space:]]*//'
 }
 
 remove_dev_versions() {
 	local dev_versions
 	dev_versions=()
 	while IFS=	read -r; do
-		if ! printf '%s\n' "$REPLY" | grep -Eiv '\..*[A-Za-z].*|-dev$'; then
+		if ! printf '%s\n' "$REPLY" | grep -Eiv -e '-dev$' -e '-src$' -e '-latest$' -e '(a|b|rc)[0-9]+$' -e '[0-9]t$'; then
 			dev_versions+=("$REPLY")
 		fi
 	done < <(cat -)
@@ -353,7 +349,8 @@ EOF
 	else
 		if [ "${#installed[@]}" -gt "0" ]; then
 			log_info "${#installed[@]} installed versions matching '$prefix_pattern':" "${installed[@]}"
-			latest_installed="${installed[${#installed[@]}-1]}"
+			# latest_installed="${installed[${#installed[@]}-1]}"
+			latest_installed="$(pyenv latest "$1")"
 			log_info "latest installed version: $latest_installed"
 		else
 			log_warn "no versions matching '$prefix_pattern' currently installed"
@@ -362,7 +359,8 @@ EOF
 
 		if [ "${#available[@]}" -gt "0" ]; then
 			log_info "${#available[@]} available versions matching '$prefix_pattern':" "${available[@]}"
-			latest_available="${available[${#available[@]}-1]}"
+			# latest_available="${available[${#available[@]}-1]}"
+			latest_available="$(pyenv latest --known "$1")"
 			log_info "latest available version: $latest_available"
 		else
 			log_error 'no installable version could be found!'
@@ -377,7 +375,7 @@ EOF
 			return 1
 		else
 			log_warn "installing: $latest_available"
-			>&2 pyenv install "$latest_available"
+			>&2 pyenv install --skip-existing "$latest_available"
 			log_info 'temporarily activating installed version in shell and updating pip and setuptools'
 			eval "$(pyenv init -)"
 			>&2 pyenv rehash
