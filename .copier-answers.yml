@@ -1,15 +1,20 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v0.1.1
-_src_path: copier-bash-getopts
+_commit: v2.0.0
+_src_path: /Users/cpassarello16/code/personal/copier-templates/copier-bash-getopts
 description: pyenv-upgrade is a CLI utility to update Python versions installed with
     pyenv.
-file_name: pyenv-upgrade
+file_name: pyenv-upgrade.bash
 function_name: main
+include_common_functions: true
+include_extra_functions: false
+include_header: true
+include_usage: true
 max_positional_args: 1
 min_positional_args: -1
 opts: []
-positional_args_help: ''
-positional_args_metavars: ' [VERSION_PREFIX]'
+positional_args_help:
+- <VERSION_PREFIX> (optional) Python version prefix to check (e.g. 3, 3.12)
+positional_args_metavars: '[<VERSION_PREFIX>]'
 project_name: pyenv-upgrade
 project_slug: pyenv-upgrade
 short_description: CLI utility to update Python versions installed with pyenv.
